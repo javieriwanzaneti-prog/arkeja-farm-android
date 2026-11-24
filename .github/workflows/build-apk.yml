@@ -24,24 +24,20 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
     - name: Install Dependencies
       run: |
         npm install @capacitor/core @capacitor/cli @capacitor/android
 
     - name: Add Android Platform & Sync
       run: |
-        # Menambahkan platform android (jika belum ada)
         npx cap add android || true
-        # Sinkronisasi file dari folder www ke proyek android
         npx cap sync
 
     - name: Build APK with Gradle
       run: |
         cd android
         chmod +x gradlew
+        # Langsung jalankan gradle, karena runner ubuntu-latest sudah memiliki Android SDK bawaan
         ./gradlew assembleDebug
 
     - name: Upload APK Artifact
