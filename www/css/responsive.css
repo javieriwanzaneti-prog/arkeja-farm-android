@@ -1,0 +1,17 @@
+@media(min-width:640px){
+  .app{max-width:720px}
+  .nav{width:min(720px,100%)}
+  .grid{grid-template-columns:repeat(3,1fr)}
+  .content{padding:22px 22px 0}
+  .page-title{font-size:26px}
+}
+@media(max-width:360px){
+  .grid{grid-template-columns:1fr}
+  .field-row,.field-row-3{grid-template-columns:1fr}
+  #greeting{font-size:19px}
+  .nav button{font-size:8px}
+  .nav button span{font-size:16px}
+}
+@media(min-width:900px){
+  .app{max-width:1000px;display:grid;grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+}
