@@ -1,0 +1,48 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Versi cache service worker (agar update APK tidak memakai cache lama)
+        run: sed -i "s/arkeja-v1/arkeja-${{ github.run_number }}/" www/sw.js
+
+      - name: Tambah platform Android
+        run: npx cap add android
+
+      - name: Buat ikon launcher
+        run: npx @capacitor/assets generate --android --iconBackgroundColor '#287a3c' --iconBackgroundColorDark '#287a3c'
+
+      - name: Sinkronisasi web ke Android
+        run: npx cap sync android
+
+      - name: Build APK (debug, sudah bertanda tangan)
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Ubah nama APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ArkejaFarm.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArkejaFarm-apk
+          path: ArkejaFarm.apk
