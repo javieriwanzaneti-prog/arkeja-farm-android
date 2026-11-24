@@ -33,14 +33,13 @@ jobs:
         npx cap add android || true
         npx cap sync
 
-    # --- BAGIAN UNTUK MENGGANTI IKON ---
+    # --- BAGIAN PEMBUAT IKON OTOMATIS ---
     - name: Generate Custom App Icons
       run: |
-        # Install alat pembuat ikon otomatis dari Capacitor
         npm install -g @capacitor/assets
-        # Jalankan pembuat ikon (mencari file icon.png di folder assets)
-        capacitor-assets generate --android --iconBackgroundColor '#287a3c' --iconBackgroundColorDark '#1e5c2e'
-    # -----------------------------------
+        # Perintah di bawah ini hanya memotong gambar tanpa menambahkan warna latar
+        capacitor-assets generate --android
+    # ------------------------------------
 
     - name: Build APK with Gradle
       run: |
