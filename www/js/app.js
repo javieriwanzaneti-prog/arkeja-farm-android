@@ -166,39 +166,7 @@ const App = {
     container.querySelectorAll('[data-activate]').forEach(b=>b.onclick = ()=> {
       Prefs.set('activeSeasonId', b.dataset.activate); App.updateHeader(); Router.render(); toast('Musim aktif diganti');
     });
-    container.querySelectorAll('[data-land-season]').forEach(b=>b.onclick = ()=> App.seasonForm(container, b.dataset.landSeason));
-$('#land-add').onclick = ()=> App.landForm(container);
-$('#season-add').onclick = ()=> App.seasonForm(container);
-
-// --- TAMBAHKAN KODE INI UNTUK FITUR HAPUS ---
-container.querySelectorAll('[data-del-land]').forEach(b=>b.onclick = ()=> {
-  confirmDialog('Hapus lahan ini? (Data musim tanam di lahan ini mungkin akan error jika tidak dihapus dulu)', async ()=>{
-    await del('lands', b.dataset.delLand);
-    toast('Lahan dihapus');
-    Router.render();
-  });
-});
-
-container.querySelectorAll('[data-del-season]').forEach(b=>b.onclick = ()=> {
-  confirmDialog('Hapus musim tanam ini beserta seluruh data terkait (SOP, biaya, panen)?', async ()=>{
-    const id = b.dataset.delSeason;
-    await del('seasons', id);
-    // Hapus juga data terkait agar tidak menjadi sampah di database
-    const relatedStores = ['activities', 'monitorings', 'incidences', 'harvests', 'costs', 'irrigations'];
-    for(const store of relatedStores){
-      const items = await getByIndex(store, 'seasonId', id);
-      for(const item of items) await del(store, item.id);
-    }
-    // Jika musim yang dihapus adalah musim aktif, reset pilihan
-    if(Prefs.get('activeSeasonId') === id){
-      Prefs.del('activeSeasonId');
-    }
-    toast('Musim tanam beserta datanya dihapus');
-    App.updateHeader();
-    Router.render();
-  });
-});
-// --------------------------------------------
+  },
 
   async landForm(container, fromCultivation){
     modal('Tambah Lahan', `
@@ -319,6 +287,7 @@ container.querySelectorAll('[data-del-season]').forEach(b=>b.onclick = ()=> {
         <button data-tab="ppm">PPM</button>
         <button data-tab="abmix">AB Mix</button>
         <button data-tab="formulator">Formulator</button>
+        <button data-tab="campuran">Campuran</button>
         <button data-tab="history">Riwayat</button>
       </div>
       <div id="nut-content"></div>`;
@@ -329,6 +298,7 @@ container.querySelectorAll('[data-del-season]').forEach(b=>b.onclick = ()=> {
       if(tab==='ppm') App.renderPpm(el, season);
       if(tab==='abmix') App.renderAbMix(el, season);
       if(tab==='formulator') App.renderFormulator(el, season);
+      if(tab==='campuran') MixedFertilizer.render(el, season);
       if(tab==='history') App.renderNutHistory(el, season);
     };
     container.querySelectorAll('[data-tab]').forEach(b=>b.onclick = ()=> show(b.dataset.tab));
@@ -475,6 +445,7 @@ container.querySelectorAll('[data-del-season]').forEach(b=>b.onclick = ()=> {
     if(!season){ container.innerHTML = '<h2 class="page-title">Aktivitas</h2><div class="notice">Pilih musim dulu di menu Budidaya.</div>'; return; }
     const acts = sortBy(await getByIndex('activities','seasonId', season.id), 'date');
     const sops = await getAll('sops');
+    const fertilizers = await getAll('fertilizers');
     container.innerHTML = `
       <h2 class="page-title">Aktivitas & Jadwal</h2>
       <p class="subtitle">Status kegiatan, realisasi, dan biaya.</p>
@@ -519,40 +490,104 @@ container.querySelectorAll('[data-del-season]').forEach(b=>b.onclick = ()=> {
       container.querySelectorAll('[data-f]').forEach(x=>x.classList.toggle('active', x===b));
       renderList(b.dataset.f);
     });
-    $('#act-add').onclick = ()=>{
-      modal('Tambah Kegiatan', `
-        <div class="field"><label>Nama kegiatan</label><input id="a-title"></div>
-        <div class="field"><label>Jenis</label><select id="a-type">
-          <option>Pemupukan</option><option>Penyemprotan</option><option>Penyiraman</option>
-          <option>Pemangkasan</option><option>Penyiangan</option><option>Pengendalian OPT</option>
-          <option>Monitoring</option><option>Penyerbukan</option><option>Panen</option><option>Lainnya</option>
-        </select></div>
-        <div class="field-row">
-          <div class="field"><label>Tanggal</label><input id="a-date" type="date" value="${todayISO()}"></div>
-          <div class="field"><label>Jam</label><input id="a-time" type="time" value="07:00"></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Produk</label><input id="a-prod"></div>
-          <div class="field"><label>Dosis</label><input id="a-dose"></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>Volume air</label><input id="a-water"></div>
-          <div class="field"><label>Biaya (Rp)</label><input id="a-cost" type="number" value="0"></div>
-        </div>
-        <div class="field"><label>Catatan</label><textarea id="a-note"></textarea></div>
-        <button class="btn" id="a-save">Simpan</button>`, (b,close)=>{
-          b.querySelector('#a-save').onclick = async ()=>{
-            const date = b.querySelector('#a-date').value;
-            await put('activities', { id:uid('act'), seasonId:season.id, title:b.querySelector('#a-title').value||'Kegiatan',
-              type:b.querySelector('#a-type').value, date, time:b.querySelector('#a-time').value,
-              hst: daysBetween(season.plantingDate, date), productName:b.querySelector('#a-prod').value,
-              dose:b.querySelector('#a-dose').value, waterVolume:b.querySelector('#a-water').value,
-              note:b.querySelector('#a-note').value, cost:num(b.querySelector('#a-cost').value),
-              status: date < todayISO() ? 'terlambat' : (date===todayISO()?'hariini':'terjadwal'), source:'manual' });
-            close(); toast('Tersimpan'); Router.render();
+    $('#act-add').onclick = async ()=>{
+  const recipes = await getAll('mixed_recipes');
+  
+  modal('Tambah Kegiatan', `
+    <div class="field"><label>Nama kegiatan</label><input id="a-title" placeholder="Contoh: Pemupukan Susulan"></div>
+    <div class="field"><label>Jenis</label><select id="a-type">
+      <option>Pemupukan</option><option>Penyemprotan</option><option>Penyiraman</option>
+      <option>Pemangkasan</option><option>Penyiangan</option><option>Pengendalian OPT</option>
+      <option>Monitoring</option><option>Penyerbukan</option><option>Panen</option><option>Lainnya</option>
+    </select></div>
+    
+    <!-- PANEL RESEP CAMPURAN (Tersembunyi secara default) -->
+    <div id="a-recipe-panel" class="field" style="display:none; background:var(--green2); padding:10px; border-radius:10px; border:1px solid #cce5ce;">
+      <label style="color:var(--green)">Gunakan Resep Campuran (Opsional)</label>
+      <select id="a-recipe" style="margin-bottom:8px;">
+        <option value="">— Pilih Resep —</option>
+        ${recipes.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('')}
+      </select>
+      <div id="a-recipe-phases" style="display:none;">
+         <label style="color:var(--green)">Pilih Fase</label>
+         <select id="a-phase"></select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label>Tanggal</label><input id="a-date" type="date" value="${todayISO()}"></div>
+      <div class="field"><label>Jam</label><input id="a-time" type="time" value="07:00"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Produk</label><input id="a-prod"></div>
+      <div class="field"><label>Dosis</label><input id="a-dose"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Volume air</label><input id="a-water"></div>
+      <div class="field"><label>Biaya (Rp)</label><input id="a-cost" type="number" value="0"></div>
+    </div>
+    <div class="field"><label>Catatan</label><textarea id="a-note"></textarea></div>
+    <button class="btn" id="a-save">Simpan</button>`, (b,close)=>{
+      
+      // Logika menampilkan/menyembunyikan panel resep
+const checkTypeVisibility = () => {
+  b.querySelector('#a-recipe-panel').style.display = b.querySelector('#a-type').value === 'Pemupukan' ? 'block' : 'none';
+};
+
+b.querySelector('#a-type').onchange = checkTypeVisibility;
+
+// Panggil fungsi saat form pertama kali dibuka
+checkTypeVisibility();
+
+      // Logika saat resep dipilih
+      b.querySelector('#a-recipe').onchange = (e) => {
+        const rId = e.target.value;
+        const phaseSelect = b.querySelector('#a-phase');
+        if(!rId) {
+          b.querySelector('#a-recipe-phases').style.display = 'none';
+          return;
+        }
+        const recipe = recipes.find(r => r.id === rId);
+        if(recipe) {
+          phaseSelect.innerHTML = recipe.phases.map((p, i) => `<option value="${i}">${esc(p.name)} (${p.hstStart}-${p.hstEnd} HST)</option>`).join('');
+          b.querySelector('#a-recipe-phases').style.display = 'block';
+          
+          // OTOMATISASI JUDUL & FORM BERDASARKAN FASE TERPILIH
+          const applyPhaseData = () => {
+            const phase = recipe.phases[phaseSelect.value];
+            if(!phase) return;
+            
+            b.querySelector('#a-title').value = `Pemupukan: ${recipe.name} (${phase.name})`;
+            b.querySelector('#a-prod').value = 'Campuran ' + phase.items.map(i => {
+              const fName = fertilizers.find(f=>f.id===i.fertId)?.name || 'Pupuk';
+              return fName;
+            }).filter(Boolean).join(' + ');
+            
+            const totalRatio = phase.items.reduce((a, c) => a + num(c.ratio), 0);
+            const totalMix = num(phase.dosePerPlant) * num(phase.population);
+            b.querySelector('#a-dose').value = `${phase.dosePerPlant} g/tanaman (Total: ${totalMix} g)`;
+            b.querySelector('#a-water').value = `${phase.waterPerPlant} ml/tanaman (Total: ${(phase.waterPerPlant * phase.population / 1000).toFixed(1)} L)`;
+            b.querySelector('#a-note').value = `Fase: ${phase.name} | Rasio: ${phase.items.map(i => i.ratio).join(':')}`;
           };
-        });
+          
+          phaseSelect.onchange = applyPhaseData;
+          applyPhaseData();
+        }
+      };
+
+      b.querySelector('#a-save').onclick = async ()=>{
+        const date = b.querySelector('#a-date').value;
+        await put('activities', { id:uid('act'), seasonId:season.id, title:b.querySelector('#a-title').value||'Kegiatan',
+          type:b.querySelector('#a-type').value, date, time:b.querySelector('#a-time').value,
+          hst: daysBetween(season.plantingDate, date), productName:b.querySelector('#a-prod').value,
+          dose:b.querySelector('#a-dose').value, waterVolume:b.querySelector('#a-water').value,
+          note:b.querySelector('#a-note').value, cost:num(b.querySelector('#a-cost').value),
+          status: date < todayISO() ? 'terlambat' : (date===todayISO()?'hariini':'terjadwal'), source:'manual' });
+        close(); toast('Tersimpan'); Router.render();
+      };
+    });
     };
+    
     $('#act-gen').onclick = ()=> modal('Generate dari SOP', `
       <div class="field"><label>Pilih SOP</label><select id="gen-sop">
         ${sops.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}
