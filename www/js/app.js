@@ -118,23 +118,29 @@ const App = {
       <h2 class="page-title">Budidaya</h2>
       <p class="subtitle">Lahan, musim tanam, monitoring, irigasi, panen, keuangan, inventory.</p>
       <div class="card">
-        <div class="section-head"><h3>Lahan</h3><button class="btn small" id="land-add">+ Lahan</button></div>
-        ${lands.length ? lands.map(l=>`
-          <div class="list-row">
-            <div><strong>${esc(l.name)}</strong><small>${fmtNum(l.area)} m² · ${esc(l.soilType||'—')} · pH ${l.ph||'—'}</small></div>
-            <button class="btn small secondary" data-land-season="${l.id}">Mulai Musim</button>
-          </div>`).join('') : '<div class="empty">Belum ada lahan.</div>'}
+  <div class="section-head"><h3>Lahan</h3><button class="btn small" id="land-add">+ Lahan</button></div>
+  ${lands.length ? lands.map(l=>`
+    <div class="list-row">
+      <div><strong>${esc(l.name)}</strong><small>${fmtNum(l.area)} m² · ${esc(l.soilType||'—')} · pH ${l.ph||'—'}</small></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn small secondary" data-land-season="${l.id}">Mulai Musim</button>
+        <button class="btn small danger" data-del-land="${l.id}">✕</button>
       </div>
-      <div class="card">
-        <div class="section-head"><h3>Musim Tanam</h3><button class="btn small" id="season-add">+ Musim</button></div>
-        ${seasons.length ? seasons.map(s=>`
-          <div class="list-row">
-            <div><strong>${esc(s.commodityName)}</strong><small>${esc(s.landName)} · Tanam ${fmtDate(s.plantingDate)}</small>
-              <div class="tiny muted">Varietas: ${esc(s.varietyName||'—')} · Populasi: ${fmtNum(s.population||0)}</div>
-            </div>
-            <button class="btn small ${s.id===Prefs.get('activeSeasonId')?'':'outline'}" data-activate="${s.id}">${s.id===Prefs.get('activeSeasonId')?'Aktif':'Pilih'}</button>
-          </div>`).join('') : '<div class="empty">Belum ada musim.</div>'}
+    </div>`).join('') : '<div class="empty">Belum ada lahan.</div>'}
+</div>
+<div class="card">
+  <div class="section-head"><h3>Musim Tanam</h3><button class="btn small" id="season-add">+ Musim</button></div>
+  ${seasons.length ? seasons.map(s=>`
+    <div class="list-row">
+      <div><strong>${esc(s.commodityName)}</strong><small>${esc(s.landName)} · Tanam ${fmtDate(s.plantingDate)}</small>
+        <div class="tiny muted">Varietas: ${esc(s.varietyName||'—')} · Populasi: ${fmtNum(s.population||0)}</div>
       </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn small ${s.id===Prefs.get('activeSeasonId')?'':'outline'}" data-activate="${s.id}">${s.id===Prefs.get('activeSeasonId')?'Aktif':'Pilih'}</button>
+        <button class="btn small danger" data-del-season="${s.id}">✕</button>
+      </div>
+    </div>`).join('') : '<div class="empty">Belum ada musim.</div>'}
+</div>
       <div class="card">
         <div class="section-head"><h3>Menu Budidaya</h3></div>
         <div class="grid">
@@ -161,9 +167,38 @@ const App = {
       Prefs.set('activeSeasonId', b.dataset.activate); App.updateHeader(); Router.render(); toast('Musim aktif diganti');
     });
     container.querySelectorAll('[data-land-season]').forEach(b=>b.onclick = ()=> App.seasonForm(container, b.dataset.landSeason));
-    $('#land-add').onclick = ()=> App.landForm(container);
-    $('#season-add').onclick = ()=> App.seasonForm(container);
-  },
+$('#land-add').onclick = ()=> App.landForm(container);
+$('#season-add').onclick = ()=> App.seasonForm(container);
+
+// --- TAMBAHKAN KODE INI UNTUK FITUR HAPUS ---
+container.querySelectorAll('[data-del-land]').forEach(b=>b.onclick = ()=> {
+  confirmDialog('Hapus lahan ini? (Data musim tanam di lahan ini mungkin akan error jika tidak dihapus dulu)', async ()=>{
+    await del('lands', b.dataset.delLand);
+    toast('Lahan dihapus');
+    Router.render();
+  });
+});
+
+container.querySelectorAll('[data-del-season]').forEach(b=>b.onclick = ()=> {
+  confirmDialog('Hapus musim tanam ini beserta seluruh data terkait (SOP, biaya, panen)?', async ()=>{
+    const id = b.dataset.delSeason;
+    await del('seasons', id);
+    // Hapus juga data terkait agar tidak menjadi sampah di database
+    const relatedStores = ['activities', 'monitorings', 'incidences', 'harvests', 'costs', 'irrigations'];
+    for(const store of relatedStores){
+      const items = await getByIndex(store, 'seasonId', id);
+      for(const item of items) await del(store, item.id);
+    }
+    // Jika musim yang dihapus adalah musim aktif, reset pilihan
+    if(Prefs.get('activeSeasonId') === id){
+      Prefs.del('activeSeasonId');
+    }
+    toast('Musim tanam beserta datanya dihapus');
+    App.updateHeader();
+    Router.render();
+  });
+});
+// --------------------------------------------
 
   async landForm(container, fromCultivation){
     modal('Tambah Lahan', `
