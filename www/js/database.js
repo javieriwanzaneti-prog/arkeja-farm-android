@@ -1,6 +1,6 @@
 /* ============ ARKEJA FARM — IndexedDB Database ============ */
 const DB_NAME = 'arkeja_farm_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // PERBAIKAN: Membungkus array index ke dalam properti { indexes: [...] }
 const STORES = {
@@ -37,7 +37,8 @@ const STORES = {
   nutrition_hist: { keyPath:'id', indexes:[['seasonId','seasonId']] },
   // Settings
   prefs:        { keyPath:'key', indexes:[] },
-  meta:         { keyPath:'key', indexes:[] }
+  meta:         { keyPath:'key', indexes:[] },
+  mixed_recipes: { keyPath:'id', indexes:[] }
 };
 
 let dbHandle = null;
@@ -345,4 +346,4 @@ async function restoreAll(payload){
     await new Promise((res,rej)=>{ const r=t.objectStore(store).clear(); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); });
     if(rows.length) await putMany(store, rows);
   }
-}
+                          }
