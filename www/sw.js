@@ -6,7 +6,7 @@ const ASSETS = [
   './js/nutrition-engine.js','./js/calculator.js','./js/monitoring.js',
   './js/irrigation.js','./js/pest-disease.js','./js/financial.js',
   './js/inventory.js','./js/harvest.js','./js/analytics.js',
-  './js/reports.js','./js/settings.js','./js/router.js','./js/app.js'
+  './js/reports.js','./js/settings.js','./js/mixed-fertilizer.js','./js/router.js','./js/app.js'
 ];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
