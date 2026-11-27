@@ -1,7 +1,0 @@
-{
-  "appId": "id.arkeja.farm",
-  "appName": "Arkeja Farm",
-  "webDir": "www",
-  "server": { "androidScheme": "https" },
-  "android": { "allowMixedContent": false }
-}
