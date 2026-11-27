@@ -1,0 +1,90 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Opsional: keystore tetap (base64) agar APK baru bisa menimpa APK lama tanpa uninstall.
+      DEBUG_KEYSTORE_B64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build bridge penyimpanan PDF
+        run: npm run build:web
+
+      - name: Versi cache service worker (agar update APK tidak memakai cache lama)
+        run: |
+          sed -i "s/const CACHE = .*/const CACHE = 'arkeja-${{ github.run_number }}';/" www/sw.js
+          grep -q "const CACHE = 'arkeja-${{ github.run_number }}';" www/sw.js
+
+      - name: Periksa file ikon sumber
+        run: |
+          for f in assets/icon-only.png assets/icon-foreground.png assets/icon-background.png www/icon-192.png www/icon-512.png; do
+            test -f "$f" || { echo "::error::File ikon tidak ditemukan: $f"; exit 1; }
+          done
+
+      - name: Tambah platform Android
+        run: npx cap add android
+
+      - name: Buat ikon launcher
+        run: npx @capacitor/assets generate --android --assetPath assets --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff'
+
+      - name: Naikkan versionCode (agar APK baru bisa dipasang sebagai update)
+        run: |
+          sed -i "s/versionCode 1\b/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
+          grep -q "versionCode ${{ github.run_number }}" android/app/build.gradle
+
+      - name: Pasang keystore tetap (jika secret tersedia)
+        if: env.DEBUG_KEYSTORE_B64 != ''
+        run: |
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+
+      - name: Peringatan keystore
+        if: env.DEBUG_KEYSTORE_B64 == ''
+        run: echo "::warning::Secret ANDROID_DEBUG_KEYSTORE_BASE64 belum diisi. Tanda tangan APK berubah tiap build, sehingga update harus uninstall dulu (data lokal hilang). Lihat README."
+
+      - name: Sinkronisasi web ke Android
+        run: npx cap sync android
+
+      - name: Build APK (debug, sudah bertanda tangan)
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Ubah nama APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ArkejaFarm.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArkejaFarm-apk
+          path: ArkejaFarm.apk
+          if-no-files-found: error
+          retention-days: 30
