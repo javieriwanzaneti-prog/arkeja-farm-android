@@ -203,7 +203,7 @@ const Settings = {
       <h2 class="page-title">Pupuk</h2>
       <button class="btn" id="fer-add" style="margin-bottom:10px">+ Tambah Pupuk</button>
       ${list.map(f=>`<div class="card"><div class="list-row" style="border:0;padding:0">
-        <div><strong>${esc(f.name)}</strong><small>N:${f.N} P:${f.P2O5} K:${f.K2O} Ca:${f.Ca} Mg:${f.Mg} S:${f.S}</small>
+        <div><strong>${esc(f.name)}</strong><small>N:${f.N} P₂O₅:${f.P2O5} K₂O:${f.K2O} CaO:${f.CaO??'—'} MgO:${f.MgO??'—'} S:${f.S}</small>
           <div class="tiny muted">${esc(f.producer||'')} · ${rupiah(f.price)} / ${f.packageWeightKg||1} kg</div>
         </div>
         <div style="display:flex;gap:4px"><button class="btn small secondary" data-edit="${f.id}">Edit</button><button class="btn small danger" data-del="${f.id}">✕</button></div>
@@ -218,11 +218,15 @@ const Settings = {
     }));
   },
   _formFertilizer(f, container){
-    const fields = ['N','P2O5','K2O','Ca','Mg','S','Fe','Mn','Zn','Cu','B','Mo'];
+    const fields = ['N','P2O5','K2O','CaO','MgO','S','Fe','Mn','Zn','Cu','B','Mo'];
+    const legacyCa = f && f.CaO===undefined && f.Ca!==undefined ? Number(f.Ca)||0 : null;
+    const legacyMg = f && f.MgO===undefined && f.Mg!==undefined ? Number(f.Mg)||0 : null;
+    const caValue = f?.CaO!==undefined ? f.CaO : (legacyCa!==null ? +(legacyCa/0.7147).toFixed(4) : 0);
+    const mgValue = f?.MgO!==undefined ? f.MgO : (legacyMg!==null ? +(legacyMg/0.6030).toFixed(4) : 0);
     modal(f?'Edit Pupuk':'Tambah Pupuk', `
       <div class="field"><label>Nama produk</label><input id="f-name" value="${esc(f?.name||'')}"></div>
       <div class="field"><label>Produsen</label><input id="f-prod" value="${esc(f?.producer||'')}"></div>
-      <div class="field-row-3">${fields.map(k=>`<div class="field"><label>${k} (%)</label><input id="f-${k}" type="number" step="0.01" value="${f?.[k]||0}"></div>`).join('')}</div>
+      ${legacyCa!==null||legacyMg!==null?'<div class="notice">Data lama Ca/Mg dikonversi ke ekuivalen CaO/MgO agar hasil PPM sebelumnya tetap sama. Periksa kembali terhadap label kemasan sebelum menyimpan.</div>':''}<div class="field-row-3">${fields.map(k=>`<div class="field"><label>${k} (%)</label><input id="f-${k}" type="number" min="0" max="100" step="0.01" value="${k==='CaO'?caValue:k==='MgO'?mgValue:(f?.[k]??0)}"></div>`).join('')}</div>
       <div class="field-row">
         <div class="field"><label>Harga (Rp)</label><input id="f-price" type="number" value="${f?.price||0}"></div>
         <div class="field"><label>Berat kemasan (kg)</label><input id="f-weight" type="number" step="0.1" value="${f?.packageWeightKg||1}"></div>
@@ -233,6 +237,7 @@ const Settings = {
             producer:b.querySelector('#f-prod').value, price:num(b.querySelector('#f-price').value),
             packageWeightKg:num(b.querySelector('#f-weight').value) };
           fields.forEach(k=> obj[k] = num(b.querySelector('#f-'+k).value));
+          try { NutritionEngine.validateFertilizerAnalysis(obj); } catch(error) { return toast(error.message); }
           await put('fertilizers', obj); close(); toast('Tersimpan'); Settings.renderFertilizers(container);
         };
       });
