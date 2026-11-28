@@ -864,10 +864,10 @@ async function seedIfEmpty(){
 
   // Pupuk contoh
   await putMany('fertilizers', [
-    { id:uid('fer'), name:'NPK 16-16-16 [CONTOH]', producer:'Contoh Pabrik', N:16, P2O5:16, K2O:16, Ca:0, Mg:0, S:0, Fe:0, Mn:0, Zn:0, Cu:0, B:0, Mo:0, price:18000, packageWeightKg:1 },
-    { id:uid('fer'), name:'NPK 12-12-17 [CONTOH]', producer:'Contoh Pabrik', N:12, P2O5:12, K2O:17, Ca:0, Mg:0, S:0, Fe:0, Mn:0, Zn:0, Cu:0, B:0, Mo:0, price:18500, packageWeightKg:1 },
-    { id:uid('fer'), name:'KNO3 [CONTOH]', producer:'Contoh Pabrik', N:13, P2O5:0, K2O:46, Ca:0, Mg:0, S:0, Fe:0, Mn:0, Zn:0, Cu:0, B:0, Mo:0, price:25000, packageWeightKg:1 },
-    { id:uid('fer'), name:'Ca(NO3)2 [CONTOH]', producer:'Contoh Pabrik', N:15.5, P2O5:0, K2O:0, Ca:19, Mg:0, S:0, Fe:0, Mn:0, Zn:0, Cu:0, B:0, Mo:0, price:22000, packageWeightKg:1 }
+    { id:uid('fer'), name:'NPK 16-16-16 [CONTOH]', producer:'Contoh Pabrik', N:16, P2O5:16, K2O:16, CaO:0, MgO:0, S:0, Fe:0, Mn:0, Zn:0, Cu:0, B:0, Mo:0, price:18000, packageWeightKg:1 },
+    { id:uid('fer'), name:'NPK 12-12-17 [CONTOH]', producer:'Contoh Pabrik', N:12, P2O5:12, K2O:17, CaO:0, MgO:0, S:0, Fe:0, Mn:0, Zn:0, Cu:0, B:0, Mo:0, price:18500, packageWeightKg:1 },
+    { id:uid('fer'), name:'KNO3 [CONTOH]', producer:'Contoh Pabrik', N:13, P2O5:0, K2O:46, CaO:0, MgO:0, S:0, Fe:0, Mn:0, Zn:0, Cu:0, B:0, Mo:0, price:25000, packageWeightKg:1 },
+    { id:uid('fer'), name:'Ca(NO3)2 [CONTOH]', producer:'Contoh Pabrik', N:15.5, P2O5:0, K2O:0, CaO:26.59, MgO:0, S:0, Fe:0, Mn:0, Zn:0, Cu:0, B:0, Mo:0, price:22000, packageWeightKg:1 }
   ]);
 
   // Pestisida contoh
