@@ -512,10 +512,12 @@ const App = {
         <div class="green-notice notice">Total ${fmtNum(result.totalGrams,2)} g dalam ${fmtNum(liters,2)} L = ${fmtNum(result.gramsPerLiter,2)} g/L</div>
         <h4>Komposisi campuran</h4>
         ${result.products.map(p=>`<div class="list-row"><span>${esc(p.name)}</span><strong>${fmtNum(p.grams,2)} g</strong></div>`).join('')}
+        <h4 style="margin-top:12px">Kontribusi PPM setiap produk (unsur murni)</h4>
+        <div class="table-wrap"><table><thead><tr><th>Produk</th><th>N</th><th>P</th><th>K</th><th>Ca</th><th>Mg</th><th>S</th></tr></thead><tbody>${result.products.map(p=>`<tr><td>${esc(p.name)}</td>${['N','P','K','Ca','Mg','S'].map(k=>`<td>${fmtNum(p.ppm[k],2)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
         <h4 style="margin-top:12px">PPM total larutan</h4>
         <div class="grid">${nutrientLabels.map(k=>`<div class="metric"><span>${k}</span><strong>${fmtNum(result.nutrients[k],2)} ppm</strong></div>`).join('')}</div>
         ${incompatibilities.map(w=>`<div class="notice">⚠ ${esc(w)}</div>`).join('')}
-        <p class="tiny muted">P dihitung dari P₂O₅ × 0,4364 dan K dari K₂O × 0,8301. PPM merupakan estimasi teoritis berdasarkan komposisi label, bukan pengukuran EC.</p>`;
+        <p class="tiny muted">Konversi otomatis: P₂O₅ → P × 0,4364; K₂O → K × 0,8301; CaO → Ca × 0,7147; MgO → Mg × 0,6030. S dan unsur mikro dianggap sebagai persentase unsur murni sesuai label. PPM merupakan estimasi teoritis, bukan pengukuran EC.</p>`;
       if(season){
         try { await NutritionEngine.saveHistory(season.id,{type:'ppm-mixture',liters,products:result.products.map(p=>({fertilizerId:p.fertilizerId,name:p.name,grams:p.grams})),result}); }
         catch(err){ console.error(err); toast('Hasil dihitung, tetapi riwayat gagal disimpan'); }
