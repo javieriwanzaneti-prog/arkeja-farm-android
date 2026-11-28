@@ -1,5 +1,5 @@
 /* ARKEJA FARM — cache ketat, timeout jaringan, fallback offline */
-const CACHE = 'arkeja-v22';
+const CACHE = 'arkeja-v23';
 const NETWORK_TIMEOUT_MS = 3500;
 const ASSETS = [
   './', './index.html', './manifest.json', './offline.html', './icon-192.png', './icon-512.png',
