@@ -2,6 +2,8 @@
 const NutritionEngine = {
   P_FROM_P2O5: 0.4364,
   K_FROM_K2O: 0.8301,
+  CA_FROM_CAO: 0.7147,
+  MG_FROM_MGO: 0.6030,
 
   _n(v){
     if(typeof v === 'string') v = v.trim().replace(',', '.');
@@ -14,8 +16,8 @@ const NutritionEngine = {
     if(!fertilizer || g < 0) throw new RangeError('Data pupuk atau berat tidak valid');
     return {
       N:g*pct(fertilizer.N), P:g*pct(fertilizer.P2O5)*this.P_FROM_P2O5,
-      K:g*pct(fertilizer.K2O)*this.K_FROM_K2O, Ca:g*pct(fertilizer.Ca),
-      Mg:g*pct(fertilizer.Mg), S:g*pct(fertilizer.S), Fe:g*pct(fertilizer.Fe),
+      K:g*pct(fertilizer.K2O)*this.K_FROM_K2O, Ca:g*pct(fertilizer.CaO)*this.CA_FROM_CAO + (fertilizer.CaO===undefined?g*pct(fertilizer.Ca):0),
+      Mg:g*pct(fertilizer.MgO)*this.MG_FROM_MGO + (fertilizer.MgO===undefined?g*pct(fertilizer.Mg):0), S:g*pct(fertilizer.S), Fe:g*pct(fertilizer.Fe),
       Mn:g*pct(fertilizer.Mn), Zn:g*pct(fertilizer.Zn), Cu:g*pct(fertilizer.Cu),
       B:g*pct(fertilizer.B), Mo:g*pct(fertilizer.Mo)
     };
@@ -55,12 +57,13 @@ const NutritionEngine = {
       const grams=this._n(item && item.grams);
       if(!fertilizer) throw new RangeError('Ada produk pupuk yang belum dipilih');
       if(grams<=0) throw new RangeError('Berat setiap produk harus lebih dari 0 gram');
+      this.validateFertilizerAnalysis(fertilizer);
       const ppm={
         N:this.ppmFromGrams(grams,volume,fertilizer.N),
         P:this.ppmFromGrams(grams,volume,fertilizer.P2O5)*this.P_FROM_P2O5,
         K:this.ppmFromGrams(grams,volume,fertilizer.K2O)*this.K_FROM_K2O,
-        Ca:this.ppmFromGrams(grams,volume,fertilizer.Ca),
-        Mg:this.ppmFromGrams(grams,volume,fertilizer.Mg),
+        Ca:this.ppmFromGrams(grams,volume,fertilizer.CaO ?? fertilizer.Ca)* (fertilizer.CaO===undefined?1:this.CA_FROM_CAO),
+        Mg:this.ppmFromGrams(grams,volume,fertilizer.MgO ?? fertilizer.Mg)* (fertilizer.MgO===undefined?1:this.MG_FROM_MGO),
         S:this.ppmFromGrams(grams,volume,fertilizer.S),
         Fe:this.ppmFromGrams(grams,volume,fertilizer.Fe),
         Mn:this.ppmFromGrams(grams,volume,fertilizer.Mn),
@@ -73,7 +76,8 @@ const NutritionEngine = {
       totalGrams+=grams;
       products.push({fertilizerId:fertilizer.id,name:fertilizer.name,grams,ppm});
     }
-    return {liters:volume,totalGrams,gramsPerLiter:totalGrams/volume,products,
+    return {liters:volume,totalGrams,gramsPerLiter:totalGrams/volume,products, basis:'unsur-murni',
+      conversionFactors:{P2O5_to_P:this.P_FROM_P2O5,K2O_to_K:this.K_FROM_K2O,CaO_to_Ca:this.CA_FROM_CAO,MgO_to_Mg:this.MG_FROM_MGO},
       nutrients:Object.fromEntries(keys.map(k=>[k,+totals[k].toFixed(4)]))};
   },
 
@@ -143,7 +147,8 @@ const NutritionEngine = {
 
   validateFertilizerAnalysis(fertilizer){
     if(!fertilizer || fertilizer.id===undefined) throw new RangeError('Master pupuk tidak valid.');
-    const fields=['N','P2O5','K2O','Ca','Mg','S','Fe','Mn','Zn','Cu','B','Mo'];
+    if(!String(fertilizer.name||'').trim()) throw new RangeError('Nama produk pupuk wajib diisi.');
+    const fields=['N','P2O5','K2O','CaO','MgO','Ca','Mg','S','Fe','Mn','Zn','Cu','B','Mo'];
     for(const key of fields){
       const raw=fertilizer[key];
       if(raw===undefined||raw===null||raw==='') continue;
@@ -156,8 +161,8 @@ const NutritionEngine = {
   nutrientPercent(fertilizer){
     return {
       N:this._n(fertilizer?.N), P:this._n(fertilizer?.P2O5)*this.P_FROM_P2O5,
-      K:this._n(fertilizer?.K2O)*this.K_FROM_K2O, Ca:this._n(fertilizer?.Ca),
-      Mg:this._n(fertilizer?.Mg), S:this._n(fertilizer?.S), Fe:this._n(fertilizer?.Fe),
+      K:this._n(fertilizer?.K2O)*this.K_FROM_K2O, Ca:fertilizer?.CaO!==undefined?this._n(fertilizer.CaO)*this.CA_FROM_CAO:this._n(fertilizer?.Ca),
+      Mg:fertilizer?.MgO!==undefined?this._n(fertilizer.MgO)*this.MG_FROM_MGO:this._n(fertilizer?.Mg), S:this._n(fertilizer?.S), Fe:this._n(fertilizer?.Fe),
       Mn:this._n(fertilizer?.Mn), Zn:this._n(fertilizer?.Zn), Cu:this._n(fertilizer?.Cu),
       B:this._n(fertilizer?.B), Mo:this._n(fertilizer?.Mo)
     };
